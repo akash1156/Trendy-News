@@ -5,14 +5,13 @@ import Footer from './Footer';
 import Header from './Header';
 import './NewsApp.css';
 
-
 // Mock data moved outside component to prevent recreation on each render
 console.log('API Key:', process.env.REACT_APP_NEWS_API_KEY);
 const mockArticles = [
   {
     title: "Breaking: Revolutionary AI Technology Unveiled",
     description: "Scientists have developed a groundbreaking AI system that could change the way we interact with technology forever.",
-    urlToImage: "https://via.placeholder.com/400x200?text=AI+Technology",
+    image: "https://via.placeholder.com/400x200?text=AI+Technology",
     publishedAt: "2025-06-17T10:30:00Z",
     source: { name: "Tech News" },
     url: "https://example.com/ai-technology"
@@ -20,7 +19,7 @@ const mockArticles = [
   {
     title: "Climate Change Summit Reaches Historic Agreement",
     description: "World leaders have signed a comprehensive agreement to combat climate change with unprecedented measures.",
-    urlToImage: "https://via.placeholder.com/400x200?text=Climate+Summit",
+    image: "https://via.placeholder.com/400x200?text=Climate+Summit",
     publishedAt: "2025-06-17T09:15:00Z",
     source: { name: "Global News" },
     url: "https://example.com/climate-summit"
@@ -28,7 +27,7 @@ const mockArticles = [
   {
     title: "Space Exploration Milestone Achieved",
     description: "NASA's latest mission has successfully landed on Mars, marking a new era in space exploration.",
-    urlToImage: "https://via.placeholder.com/400x200?text=Mars+Mission",
+    image: "https://via.placeholder.com/400x200?text=Mars+Mission",
     publishedAt: "2025-06-17T08:45:00Z",
     source: { name: "Space Today" },
     url: "https://example.com/mars-mission"
@@ -36,7 +35,7 @@ const mockArticles = [
   {
     title: "Medical Breakthrough in Cancer Treatment",
     description: "Researchers have discovered a new treatment method that shows promising results in early trials.",
-    urlToImage: "https://via.placeholder.com/400x200?text=Medical+Research",
+    image: "https://via.placeholder.com/400x200?text=Medical+Research",
     publishedAt: "2025-06-17T07:20:00Z",
     source: { name: "Health Journal" },
     url: "https://example.com/cancer-treatment"
@@ -44,7 +43,7 @@ const mockArticles = [
   {
     title: "Economic Markets Show Strong Recovery",
     description: "Global markets are experiencing their strongest performance in years following new policy changes.",
-    urlToImage: "https://via.placeholder.com/400x200?text=Stock+Market",
+    image: "https://via.placeholder.com/400x200?text=Stock+Market",
     publishedAt: "2025-06-17T06:00:00Z",
     source: { name: "Financial Times" },
     url: "https://example.com/market-recovery"
@@ -52,7 +51,7 @@ const mockArticles = [
   {
     title: "Revolutionary Electric Vehicle Launch",
     description: "A new electric vehicle with 1000-mile range capability is set to transform the automotive industry.",
-    urlToImage: "https://via.placeholder.com/400x200?text=Electric+Car",
+    image: "https://via.placeholder.com/400x200?text=Electric+Car",
     publishedAt: "2025-06-17T05:30:00Z",
     source: { name: "Auto News" },
     url: "https://example.com/electric-vehicle"
@@ -75,6 +74,17 @@ const NewsApp = () => {
     'science', 'sports', 'technology'
   ];
 
+  // Map categories to GNews API topics
+  const categoryToTopic = {
+    'general': 'breaking-news',
+    'business': 'business',
+    'entertainment': 'entertainment',
+    'health': 'health',
+    'science': 'science',
+    'sports': 'sports',
+    'technology': 'technology'
+  };
+
   const fetchNews = useCallback(async () => {
     setLoading(true);
     
@@ -87,22 +97,26 @@ const NewsApp = () => {
 
     try {
       console.log('Fetching news for category:', category);
+      const topic = categoryToTopic[category] || 'breaking-news';
+      
+      // Correct GNews API endpoint
       const response = await axios.get(
-        `https://newsapi.org/v2/top-headlines?country=us&category=${category}&apiKey=${API_KEY}&pageSize=100`
+        `https://gnews.io/api/v4/top-headlines?category=${topic}&lang=en&country=us&max=100&apikey=${API_KEY}`
       );
       
       console.log('Full API Response:', response.data);
-      console.log('Total results:', response.data.totalResults);
+      console.log('Total results:', response.data.totalArticles);
       console.log('Articles received:', response.data.articles?.length || 0);
       
-      if (response.data.status === 'ok' && response.data.articles && response.data.articles.length > 0) {
+      // GNews API returns articles directly in response.data.articles
+      if (response.data.articles && response.data.articles.length > 0) {
         // Process and clean the articles data
         const processedArticles = response.data.articles.map((article, index) => {
           console.log(`Article ${index + 1}:`, {
             title: article.title,
             source: article.source?.name,
             description: article.description?.substring(0, 50) + '...',
-            hasImage: !!article.urlToImage,
+            hasImage: !!article.image,
             publishedAt: article.publishedAt
           });
           
@@ -115,7 +129,9 @@ const NewsApp = () => {
               ...article.source,
               name: article.source?.name || 'Unknown Source'
             },
-            urlToImage: article.urlToImage || null,
+            // GNews uses 'image' instead of 'urlToImage'
+            urlToImage: article.image || null,
+            image: article.image || null,
             url: article.url || '#',
             publishedAt: article.publishedAt || new Date().toISOString()
           };
@@ -123,14 +139,20 @@ const NewsApp = () => {
           // Filter out removed or invalid articles
           article.title !== "[Removed]" && 
           article.description !== "[Removed]" &&
-          article.title !== "No Title Available"
+          article.title !== "No Title Available" &&
+          article.title && article.title.trim() !== ""
         );
         
         console.log('Processed articles count:', processedArticles.length);
-        setArticles(processedArticles);
+        
+        if (processedArticles.length > 0) {
+          setArticles(processedArticles);
+        } else {
+          console.warn('No valid articles after processing, using mock data');
+          setArticles(mockArticles);
+        }
       } else {
-        console.warn('API returned no valid articles, using mock data');
-        console.log('API status:', response.data.status);
+        console.warn('API returned no articles, using mock data');
         setArticles(mockArticles);
       }
     } catch (error) {
@@ -138,6 +160,12 @@ const NewsApp = () => {
       if (error.response) {
         console.error('API Error Response:', error.response.data);
         console.error('API Error Status:', error.response.status);
+        
+        if (error.response.status === 401) {
+          console.error('Invalid API key. Please check your GNews API key.');
+        } else if (error.response.status === 429) {
+          console.error('Rate limit exceeded. Please try again later.');
+        }
       }
       // Always fallback to mock data on error
       setArticles(mockArticles);
@@ -168,14 +196,15 @@ const NewsApp = () => {
     
     try {
       console.log('Searching for:', searchTerm);
+      // GNews API search endpoint
       const response = await axios.get(
-        `https://newsapi.org/v2/everything?q=${encodeURIComponent(searchTerm)}&apiKey=${API_KEY}&pageSize=100&sortBy=publishedAt&language=en`
+        `https://gnews.io/api/v4/search?q=${encodeURIComponent(searchTerm)}&lang=en&country=us&max=100&apikey=${API_KEY}`
       );
       
       console.log('Search API Response:', response.data);
       console.log('Search results count:', response.data.articles?.length || 0);
       
-      if (response.data.status === 'ok' && response.data.articles && response.data.articles.length > 0) {
+      if (response.data.articles && response.data.articles.length > 0) {
         const processedArticles = response.data.articles.map(article => ({
           ...article,
           title: article.title || 'No Title Available',
@@ -184,17 +213,30 @@ const NewsApp = () => {
             ...article.source,
             name: article.source?.name || 'Unknown Source'
           },
-          urlToImage: article.urlToImage || null,
+          // GNews uses 'image' instead of 'urlToImage'
+          urlToImage: article.image || null,
+          image: article.image || null,
           url: article.url || '#',
           publishedAt: article.publishedAt || new Date().toISOString()
         })).filter(article => 
           article.title !== "[Removed]" && 
           article.description !== "[Removed]" &&
-          article.title !== "No Title Available"
+          article.title !== "No Title Available" &&
+          article.title && article.title.trim() !== ""
         );
         
         console.log('Processed search results:', processedArticles.length);
-        setArticles(processedArticles);
+        
+        if (processedArticles.length > 0) {
+          setArticles(processedArticles);
+        } else {
+          console.warn('No valid search results, using mock search');
+          const searchResults = mockArticles.filter(article =>
+            article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            article.description.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+          setArticles(searchResults);
+        }
       } else {
         console.warn('Search returned no results, using mock search');
         const searchResults = mockArticles.filter(article =>
