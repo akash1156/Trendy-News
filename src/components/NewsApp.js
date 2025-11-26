@@ -99,14 +99,25 @@ const NewsApp = () => {
       console.log('Fetching news for category:', category);
       const topic = categoryToTopic[category] || 'breaking-news';
       
-      // Correct GNews API endpoint
-      const response = await axios.get(
+      // Use AllOrigins proxy to avoid CORS in deployed environment (quick fix)
+      const headlinesProxyUrl = encodeURIComponent(
         `https://gnews.io/api/v4/top-headlines?category=${topic}&lang=en&country=us&max=100&apikey=${API_KEY}`
       );
-      
+      const headlinesResp = await axios.get(`https://api.allorigins.win/raw?url=${headlinesProxyUrl}`);
+
+      // AllOrigins may return string, so parse if needed
+      let responseData = headlinesResp.data;
+      if (typeof responseData === 'string') {
+        try { responseData = JSON.parse(responseData); } 
+        catch (e) { console.error('Failed to parse headlines proxy response:', e); }
+      }
+
+      // Build a response-like object so existing code continues to work
+      const response = { data: responseData };
+
       console.log('Full API Response:', response.data);
-      console.log('Total results:', response.data.totalArticles);
-      console.log('Articles received:', response.data.articles?.length || 0);
+      console.log('Total results:', response.data?.totalArticles);
+      console.log('Articles received:', response.data?.articles?.length || 0);
       
       // GNews API returns articles directly in response.data.articles
       if (response.data.articles && response.data.articles.length > 0) {
@@ -196,11 +207,20 @@ const NewsApp = () => {
     
     try {
       console.log('Searching for:', searchTerm);
-      // GNews API search endpoint
-      const response = await axios.get(
+      // Use AllOrigins proxy for search to avoid CORS
+      const searchProxyUrl = encodeURIComponent(
         `https://gnews.io/api/v4/search?q=${encodeURIComponent(searchTerm)}&lang=en&country=us&max=100&apikey=${API_KEY}`
       );
-      
+      const searchResp = await axios.get(`https://api.allorigins.win/raw?url=${searchProxyUrl}`);
+
+      let searchResponseData = searchResp.data;
+      if (typeof searchResponseData === 'string') {
+        try { searchResponseData = JSON.parse(searchResponseData); } 
+        catch (e) { console.error('Failed to parse search proxy response:', e); }
+      }
+
+      const response = { data: searchResponseData };
+
       console.log('Search API Response:', response.data);
       console.log('Search results count:', response.data.articles?.length || 0);
       
